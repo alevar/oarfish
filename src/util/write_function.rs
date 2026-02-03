@@ -264,10 +264,27 @@ pub fn write_out_prob(
 
     // DEBUG: Issue #59 - Track statistics for debugging (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
     let mut read_count = 0_usize;
+    
+    // DEBUG: Issue #59 - Track specific transcript for detailed analysis (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
+    const TARGET_TRANSCRIPT: &str = "ENST00000491404.2";
+    let target_transcript_id = txps_name.iter().position(|name| name == TARGET_TRANSCRIPT);
+    let mut target_transcript_read_count = 0_usize;
 
     for ((alns, probs, coverage_probs), name) in izip!(emi.eq_map.iter(), names_iter) {
         // DEBUG: Issue #59 - Log alignment inputs for first few reads (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
         let read_idx = read_count;
+        
+        // DEBUG: Issue #59 - Check if this read aligns to the target transcript (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
+        let aligns_to_target = if let Some(target_id) = target_transcript_id {
+            alns.iter().any(|a| a.ref_id as usize == target_id)
+        } else {
+            false
+        };
+        
+        if aligns_to_target {
+            target_transcript_read_count += 1;
+        }
+        
         if read_idx < 5 {
             debug!("DEBUG Issue #59: Read #{} alignment data:", read_idx);
             debug!("  Number of alignments: {}", alns.len());
@@ -290,6 +307,26 @@ pub fn write_out_prob(
         if read_idx < 5 {
             debug!("  Denominator (before filtering): {}", denom);
         }
+        
+        // DEBUG: Issue #59 - Log detailed info for reads aligning to target transcript (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
+        if aligns_to_target {
+            let rn_temp = name.as_ref().expect("could not extract read name from file");
+            let read_name = rn_temp.trim_end_matches('\0');
+            debug!("DEBUG Issue #59 [{}]: Read '{}' aligns to target transcript", TARGET_TRANSCRIPT, read_name);
+            debug!("  Total alignments for this read: {}", alns.len());
+            debug!("  Denominator (unnormalized sum): {:.6}", denom);
+            for (idx, (a, p, cp)) in izip!(alns, probs, coverage_probs).enumerate() {
+                let tid = a.ref_id as usize;
+                let transcript_name = &txps_name[tid];
+                let count = counts[tid];
+                let prob_val = *p as f64;
+                let cov_prob_val = if model_coverage { *cp } else { 1.0 };
+                let contribution = count * prob_val * cov_prob_val;
+                debug!("    Aln {}: {} (id={})", idx, transcript_name, tid);
+                debug!("      count={:.4}, prob={:.6}, cov_prob={:.6}, contribution={:.6}",
+                    count, prob_val, cov_prob_val, contribution);
+            }
+        }
 
         let rn = name.expect("could not extract read name from file");
         let read = rn.trim_end_matches('\0');
@@ -308,6 +345,13 @@ pub fn write_out_prob(
         } else {
             None
         };
+        
+        // DEBUG: Issue #59 - Track probabilities for target transcript (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
+        let mut target_transcript_probs = if aligns_to_target {
+            Some(Vec::<(usize, String, f64, f64)>::new()) // (tid, name, pre_filter_prob, post_filter_prob)
+        } else {
+            None
+        };
 
         for (a, p, cp) in izip!(alns, probs, coverage_probs) {
             let target_id = a.ref_id as usize;
@@ -318,6 +362,11 @@ pub fn write_out_prob(
             // DEBUG: Issue #59 - Store pre-filter probabilities (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
             if let Some(ref mut pre_filter) = pre_filter_probs {
                 pre_filter.push((target_id, nprob));
+            }
+            
+            // DEBUG: Issue #59 - Store probabilities for target transcript tracking (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
+            if let Some(ref mut target_probs) = target_transcript_probs {
+                target_probs.push((target_id, txps_name[target_id].clone(), nprob, 0.0));
             }
 
             if nprob >= DISPLAY_THRESH {
@@ -348,9 +397,30 @@ pub fn write_out_prob(
                 }
             }
         }
+        
+        // DEBUG: Issue #59 - Log filtering for target transcript (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
+        if let Some(ref target_probs) = target_transcript_probs {
+            debug!("  Filtering stage for target transcript {}:", TARGET_TRANSCRIPT);
+            for (tid, tname, pre_prob, _) in target_probs {
+                let passed = pre_prob >= &DISPLAY_THRESH;
+                debug!("    {} (id={}): pre_filter_prob={:.6}, passed_threshold={}",
+                    tname, tid, pre_prob, passed);
+            }
+            debug!("  Sum before renormalization (denom2): {:.6}", denom2);
+        }
 
         for p in txp_probs.iter_mut() {
             *p /= denom2;
+        }
+        
+        // DEBUG: Issue #59 - Update post-normalization probs for target transcript (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
+        if let Some(ref mut target_probs) = target_transcript_probs {
+            for (tid, _, _, post_prob) in target_probs.iter_mut() {
+                // Find this transcript in the final output
+                if let Some(pos) = txps.iter().position(|&t| t == *tid) {
+                    *post_prob = txp_probs[pos];
+                }
+            }
         }
 
         // DEBUG: Issue #59 - Log normalized probabilities for first few reads (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
@@ -361,6 +431,22 @@ pub fn write_out_prob(
             }
             let prob_sum: f64 = txp_probs.iter().sum();
             debug!("  Sum of normalized probabilities: {:.6}", prob_sum);
+        }
+        
+        // DEBUG: Issue #59 - Final summary for target transcript (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
+        if let Some(target_probs) = target_transcript_probs {
+            debug!("  FINAL probabilities written to .prob file for {}:", TARGET_TRANSCRIPT);
+            for (tid, tname, pre_prob, post_prob) in &target_probs {
+                if *post_prob > 0.0 {
+                    debug!("    {} (id={}): pre_filter={:.6}, post_norm={:.6} (WRITTEN to .prob)",
+                        tname, tid, pre_prob, post_prob);
+                } else {
+                    debug!("    {} (id={}): pre_filter={:.6}, post_norm={:.6} (FILTERED OUT, not in .prob)",
+                        tname, tid, pre_prob, post_prob);
+                }
+            }
+            let prob_sum: f64 = txp_probs.iter().sum();
+            debug!("  Total probability mass written for this read: {:.6}", prob_sum);
         }
 
         let txp_ids = txps
@@ -382,6 +468,17 @@ pub fn write_out_prob(
     debug!("  Total transcripts: {}", txps_name.len());
     debug!("  Total equivalence classes: {}", emi.eq_map.len());
     debug!("  Model coverage enabled: {}", model_coverage);
+    
+    // DEBUG: Issue #59 - Log summary for target transcript (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
+    if let Some(target_id) = target_transcript_id {
+        debug!("DEBUG Issue #59 [{}]: Summary", TARGET_TRANSCRIPT);
+        debug!("  Transcript ID in reference: {}", target_id);
+        debug!("  EM count estimate (.quant): {:.4}", counts[target_id]);
+        debug!("  Number of reads aligning to this transcript: {}", target_transcript_read_count);
+        debug!("  Note: Check sum of posterior probabilities in .prob file for this transcript");
+    } else {
+        debug!("DEBUG Issue #59: Target transcript {} not found in reference", TARGET_TRANSCRIPT);
+    }
 
     if let Either::Right(lz4) = writer_prob {
         let (_output, result) = lz4.finish();

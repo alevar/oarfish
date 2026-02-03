@@ -10,6 +10,7 @@ The debugging code helps identify:
 1. Discrepancies arising from rounding errors
 2. Effects of probability filtering via `DISPLAY_THRESH`
 3. Mismatches between probability inputs (`alns`, `probs`, `coverage_probs`) used during EM computation and the `write_out_prob()` function
+4. **NEW**: Detailed tracking of specific transcript `ENST00000491404.2` to debug large discrepancies
 
 ## Changes Made
 
@@ -34,6 +35,20 @@ Added comprehensive debug logging to track:
   - Total transcripts
   - Total equivalence classes
   - Model coverage status
+
+- **NEW - Specific Transcript Tracking** (`ENST00000491404.2`):
+  - **For ALL reads aligning to this transcript:**
+    - Read name and total alignments
+    - Denominator (unnormalized sum)
+    - For each alignment: transcript name, count, prob, cov_prob, contribution
+    - Pre-filter probabilities for all alignments
+    - Which alignments pass/fail the DISPLAY_THRESH filter
+    - Post-normalization probabilities
+    - Final probabilities written to .prob file
+  - **Summary at end:**
+    - Transcript ID in reference
+    - EM count estimate from .quant file
+    - Total number of reads aligning to this transcript
 
 ### 2. `src/em.rs` - Enhanced EM Algorithm Logging
 Added final iteration logging:
@@ -84,6 +99,7 @@ RUST_LOG=debug oarfish \
 
 The debug logs follow this pattern:
 
+### General Read Logging (first 5 reads)
 ```
 DEBUG Issue #59: Read #0 alignment data:
   Number of alignments: 3
@@ -102,6 +118,41 @@ DEBUG Issue #59: Read #0 alignment data:
     Transcript 25: normalized_prob=0.350000
     Transcript 42: normalized_prob=0.200000
   Sum of normalized probabilities: 1.000000
+```
+
+### Specific Transcript Logging (ENST00000491404.2 - ALL reads)
+```
+DEBUG Issue #59 [ENST00000491404.2]: Read 'read_12345' aligns to target transcript
+  Total alignments for this read: 4
+  Denominator (unnormalized sum): 42.567890
+  Aln 0: ENST00000491404.2 (id=123)
+    count=10.5000, prob=0.950000, cov_prob=0.850000, contribution=8.456250
+  Aln 1: ENST00000123456.1 (id=45)
+    count=5.2000, prob=0.900000, cov_prob=0.750000, contribution=3.510000
+  Aln 2: ENST00000987654.3 (id=67)
+    count=8.1000, prob=0.880000, cov_prob=0.820000, contribution=5.848960
+  Aln 3: ENST00000555555.2 (id=89)
+    count=12.3000, prob=0.920000, cov_prob=0.900000, contribution=10.195200
+  Filtering stage for target transcript ENST00000491404.2:
+    ENST00000491404.2 (id=123): pre_filter_prob=0.198654, passed_threshold=true
+    ENST00000123456.1 (id=45): pre_filter_prob=0.082456, passed_threshold=true
+    ENST00000987654.3 (id=67): pre_filter_prob=0.137456, passed_threshold=true
+    ENST00000555555.2 (id=89): pre_filter_prob=0.239456, passed_threshold=true
+  Sum before renormalization (denom2): 0.658022
+  FINAL probabilities written to .prob file for ENST00000491404.2:
+    ENST00000491404.2 (id=123): pre_filter=0.198654, post_norm=0.301923 (WRITTEN to .prob)
+    ENST00000123456.1 (id=45): pre_filter=0.082456, post_norm=0.125321 (WRITTEN to .prob)
+    ENST00000987654.3 (id=67): pre_filter=0.137456, post_norm=0.208876 (WRITTEN to .prob)
+    ENST00000555555.2 (id=89): pre_filter=0.239456, post_norm=0.363880 (WRITTEN to .prob)
+  Total probability mass written for this read: 1.000000
+
+... (repeated for every read aligning to ENST00000491404.2) ...
+
+DEBUG Issue #59 [ENST00000491404.2]: Summary
+  Transcript ID in reference: 123
+  EM count estimate (.quant): 10.5000
+  Number of reads aligning to this transcript: 42
+  Note: Check sum of posterior probabilities in .prob file for this transcript
 ```
 
 ## Identifying the Debug Code
