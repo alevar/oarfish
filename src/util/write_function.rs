@@ -267,11 +267,12 @@ pub fn write_out_prob(
 
     for ((alns, probs, coverage_probs), name) in izip!(emi.eq_map.iter(), names_iter) {
         // DEBUG: Issue #59 - Log alignment inputs for first few reads (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
-        if read_count < 5 {
-            debug!("DEBUG Issue #59: Read #{} alignment data:", read_count);
+        let read_idx = read_count;
+        if read_idx < 5 {
+            debug!("DEBUG Issue #59: Read #{} alignment data:", read_idx);
             debug!("  Number of alignments: {}", alns.len());
             for (idx, (a, p, cp)) in izip!(alns, probs, coverage_probs).enumerate() {
-                debug!("  Alignment {}: ref_id={}, prob={}, cov_prob={}", 
+                debug!("  Alignment {}: ref_id={}, prob={}, cov_prob={}",
                     idx, a.ref_id, *p, *cp);
             }
         }
@@ -286,7 +287,7 @@ pub fn write_out_prob(
         }
 
         // DEBUG: Issue #59 - Log denominator calculation for first few reads (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
-        if read_count - 1 < 5 {
+        if read_idx < 5 {
             debug!("  Denominator (before filtering): {}", denom);
         }
 
@@ -302,7 +303,7 @@ pub fn write_out_prob(
         let mut denom2 = 0.0_f64;
 
         // DEBUG: Issue #59 - Track pre-filter probabilities for first few reads (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
-        let mut pre_filter_probs = if read_count - 1 < 5 {
+        let mut pre_filter_probs = if read_idx < 5 {
             Some(Vec::<(usize, f64)>::new())
         } else {
             None
@@ -313,12 +314,12 @@ pub fn write_out_prob(
             let prob = *p as f64;
             let cov_prob = if model_coverage { *cp } else { 1.0 };
             let nprob = ((counts[target_id] * prob * cov_prob) / denom).clamp(0.0, 1.0);
-            
+
             // DEBUG: Issue #59 - Store pre-filter probabilities (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
             if let Some(ref mut pre_filter) = pre_filter_probs {
                 pre_filter.push((target_id, nprob));
             }
-            
+
             if nprob >= DISPLAY_THRESH {
                 txps.push(target_id);
                 txp_probs.push(nprob);
@@ -328,14 +329,14 @@ pub fn write_out_prob(
 
         // DEBUG: Issue #59 - Log filtering effects for first few reads (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
         if let Some(pre_filter) = pre_filter_probs {
-            debug!("  Pre-filter probabilities (DISPLAY_THRESH={}): {} transcripts", 
+            debug!("  Pre-filter probabilities (DISPLAY_THRESH={}): {} transcripts",
                 DISPLAY_THRESH, pre_filter.len());
             for (tid, prob) in &pre_filter {
                 debug!("    Transcript {}: prob={:.6}", tid, prob);
             }
             debug!("  Post-filter: {} transcripts passed threshold", txps.len());
             debug!("  Denominator2 (sum of filtered probs): {}", denom2);
-            
+
             // Log which transcripts were filtered out
             let filtered_out: Vec<_> = pre_filter.iter()
                 .filter(|(_, p)| *p < DISPLAY_THRESH)
@@ -353,7 +354,7 @@ pub fn write_out_prob(
         }
 
         // DEBUG: Issue #59 - Log normalized probabilities for first few reads (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
-        if read_count - 1 < 5 {
+        if read_idx < 5 {
             debug!("  Post-normalization probabilities:");
             for (tid, prob) in izip!(&txps, &txp_probs) {
                 debug!("    Transcript {}: normalized_prob={:.6}", tid, prob);
