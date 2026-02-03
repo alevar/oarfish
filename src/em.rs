@@ -250,6 +250,25 @@ pub fn do_em<'a, I: Iterator<Item = (&'a [AlnInfo], &'a [f32], &'a [f64])> + 'a,
         &mut prev_counts,
         &mut curr_counts,
     );
+    
+    // DEBUG: Issue #59 - Log final EM counts for debugging (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
+    if do_log {
+        use tracing::debug;
+        let total_count: f64 = curr_counts.iter().sum();
+        let non_zero_count = curr_counts.iter().filter(|&&x| x > 0.0).count();
+        debug!("DEBUG Issue #59: Final EM iteration completed after {} iterations", niter);
+        debug!("  Total count across all transcripts: {:.2}", total_count);
+        debug!("  Number of transcripts with non-zero counts: {}/{}", non_zero_count, curr_counts.len());
+        
+        // Log top 10 transcripts by count for debugging
+        let mut indexed_counts: Vec<_> = curr_counts.iter().enumerate().collect();
+        indexed_counts.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
+        debug!("  Top 10 transcripts by count:");
+        for (i, (idx, count)) in indexed_counts.iter().take(10).enumerate() {
+            debug!("    {}. Transcript {}: count={:.4}", i + 1, idx, count);
+        }
+    }
+    
     //  return the final estimated abundances
     curr_counts
 }
