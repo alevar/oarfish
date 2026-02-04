@@ -43,6 +43,20 @@ fn parse_assign_prob_out_value(s: &str) -> anyhow::Result<ReadAssignmentProbOut>
     }
 }
 
+fn parse_display_thresh(s: &str) -> anyhow::Result<f64> {
+    match s.to_lowercase().as_str() {
+        "none" => Ok(f64::MIN_POSITIVE),
+        _ => {
+            let val = s.parse::<f64>()?;
+            if val >= 0.0 && val <= 1.0 {
+                Ok(val)
+            } else {
+                anyhow::bail!("display-thresh must be between 0.0 and 1.0, got {}", val)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, clap::ValueEnum, Serialize)]
 pub enum SequencingTech {
     OntCDNA,
@@ -382,6 +396,17 @@ pub struct Args {
         value_parser = parse_assign_prob_out_value
     )]
     pub write_assignment_probs: Option<ReadAssignmentProbOut>,
+
+    /// minimum posterior probability threshold for a read-transcript assignment to be written
+    /// to the .prob file. Accepts a float value between 0.0 and 1.0, or the sentinel value
+    /// 'none' to use the minimum machine precision (f64::MIN_POSITIVE).
+    #[arg(
+        long,
+        help_heading = "output read-txps probabilities",
+        default_value_t = 1e-6,
+        value_parser = parse_display_thresh
+    )]
+    pub display_thresh: f64,
 
     /// maximum number of iterations for which to run the EM algorithm
     #[arg(long, help_heading = "EM", default_value_t = 1000)]

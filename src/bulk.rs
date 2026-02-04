@@ -194,19 +194,13 @@ fn perform_inference_and_write_output(
     if args.write_assignment_probs.is_some() {
         let name_vec = name_vec
             .expect("cannot write assignment probabilities without valid vector of read names");
-        
-        // DEBUG: Issue #59 - Log counts being passed to write_out_prob (pre-PR commit: af64207206c22fcf20b038492cf008edd1b17c34)
-        info!("DEBUG Issue #59: Writing assignment probabilities");
-        let total_count: f64 = counts.iter().sum();
-        let non_zero_count = counts.iter().filter(|&&x| x > 0.0).count();
-        info!("  Counts summary: total={:.2}, non_zero={}/{}", total_count, non_zero_count, counts.len());
-        
         write_out_prob(
             args.output.as_ref().expect("present"),
             &emi,
             &counts,
             name_vec,
             txps_name,
+            args.display_thresh,
         )?;
     }
 
