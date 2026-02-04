@@ -31,7 +31,7 @@ seqcol_rs = { git = "https://github.com/COMBINE-lab/seqcol_rs", branch = "dev", 
 anyhow = "1.0.100"
 bstr = "1.12.1"
 bio-types = { version = "1.0.4", features = ["serde"] }
-clap = { version = "4.5.54", features = ["derive"] }
+clap = { version = "4.5.57", features = ["derive"] }
 noodles-bam = "0.85.0"
 noodles-sam = "0.81.0"
 num-format = "0.4.4"
@@ -66,8 +66,8 @@ crossbeam = { version = "0.8.4", features = [
 sprs = "0.11.4"
 
 # alternative sources for dev
-minimap2-sys = { version = "0.1.24" } #, git = "https://github.com/rob-p/minimap2-rs.git", branch = "main" }
-minimap2 = { version = "0.1.28" }     # git = "https://github.com/rob-p/minimap2-rs.git", branch = "main" }
+minimap2-sys = { version = "0.1.30" } #, git = "https://github.com/rob-p/minimap2-rs.git", branch = "main" }
+minimap2 = { version = "0.1.30" }     # git = "https://github.com/rob-p/minimap2-rs.git", branch = "main" }
 
 needletail = "0.6.3"
 indicatif = "0.18.3"
