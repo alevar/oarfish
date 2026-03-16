@@ -235,6 +235,7 @@ fn parse_filter_f32(arg: &str) -> anyhow::Result<FilterArg> {
 ))]
 #[command(group(
     clap::ArgGroup::new("raw_ref_type")
+    .multiple(true)
     .args(["annotated", "novel", "index"])
 ))]
 pub struct Args {
@@ -443,4 +444,58 @@ pub struct Args {
     /// use a KDE model of the observed fragment length distribution
     #[arg(short, long, hide = true)]
     pub use_kde: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Args;
+    use clap::Parser;
+
+    #[test]
+    fn allows_annotated_and_novel_together() {
+        let parsed = Args::try_parse_from([
+            "oarfish",
+            "--reads",
+            "reads.fq.gz",
+            "--annotated",
+            "annotated.fa",
+            "--novel",
+            "novel.fa",
+            "--seq-tech",
+            "ont-cdna",
+            "-o",
+            "out",
+        ]);
+
+        assert!(parsed.is_ok(), "expected parse success, got {parsed:?}");
+        let parsed = parsed.expect("valid arguments");
+        assert_eq!(
+            parsed.annotated.as_deref(),
+            Some(std::path::Path::new("annotated.fa"))
+        );
+        assert_eq!(
+            parsed.novel.as_deref(),
+            Some(std::path::Path::new("novel.fa"))
+        );
+        assert!(parsed.index.is_none());
+    }
+
+    #[test]
+    fn rejects_index_with_raw_reference_fastas() {
+        let parsed = Args::try_parse_from([
+            "oarfish",
+            "--reads",
+            "reads.fq.gz",
+            "--annotated",
+            "annotated.fa",
+            "--index",
+            "transcripts.mmi",
+            "--seq-tech",
+            "ont-cdna",
+            "-o",
+            "out",
+        ]);
+
+        assert!(parsed.is_err(), "expected parse failure");
+    }
 }
