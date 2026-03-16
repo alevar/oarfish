@@ -1,6 +1,6 @@
 [package]
 name = "oarfish"
-version = "0.9.3"
+version = "0.9.4"
 edition = "2024"
 rust-version = "1.91"
 authors = [
@@ -32,8 +32,8 @@ anyhow = "1.0.100"
 bstr = "1.12.1"
 bio-types = { version = "1.0.4", features = ["serde"] }
 clap = { version = "4.5.57", features = ["derive"] }
-noodles-bam = "0.85.0"
-noodles-sam = "0.81.0"
+noodles-bam = "0.87.0"
+noodles-sam = "0.83.0"
 num-format = "0.4.4"
 lz4 = "1.28.1"
 either = "1.15.0"
@@ -50,7 +50,7 @@ serde_json = "1.0.149"
 path-tools = "0.1.0"
 atomic_float = "1.1.0"
 sendable-swapvec = "0.4.3"
-rand = "0.9.2" #0.8.5"
+rand = "0.10.0" #0.8.5"
 arrow2 = { version = "0.18.0", features = [
   "io_parquet",
   "io_parquet_gzip",
@@ -58,7 +58,7 @@ arrow2 = { version = "0.18.0", features = [
   "io_parquet_snappy",
 ] }
 kders = { git = "https://github.com/COMBINE-lab/kde-rs.git", branch = "dev", version = "0.1.1" }
-noodles-bgzf = { version = "0.45.0" }
+noodles-bgzf = { version = "0.46.0" }
 crossbeam = { version = "0.8.4", features = [
   "crossbeam-queue",
   "crossbeam-channel",

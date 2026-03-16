@@ -48,7 +48,7 @@ fn parse_display_thresh(s: &str) -> anyhow::Result<f64> {
         "none" => Ok(f64::MIN_POSITIVE),
         _ => {
             let val = s.parse::<f64>()?;
-            if val >= 0.0 && val <= 1.0 {
+            if (0.0..=1.0).contains(&val) {
                 Ok(val)
             } else {
                 anyhow::bail!("display-thresh must be between 0.0 and 1.0, got {}", val)
